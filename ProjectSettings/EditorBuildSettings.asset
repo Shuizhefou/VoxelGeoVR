@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/Scenes/Voxel.unity
+    guid: 065d3667fdee4a146a53a3e529ece041
+  - enabled: 1
     path: Assets/Scenes/Main.unity
     guid: ae5025db4d34f0941a7e624928347845
   - enabled: 1

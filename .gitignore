@@ -38,3 +38,6 @@ crashlytics-build.properties
 # ---- 系统 ----
 .DS_Store
 Thumbs.db
+
+# ---- 生成物：离线预览图 / 真机截图 ----
+/Preview/

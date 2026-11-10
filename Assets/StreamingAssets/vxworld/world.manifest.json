@@ -1,0 +1,264 @@
+{
+  "formatId": "vxworld/1",
+  "name": "新的世界",
+  "source": {
+    "mcVersion": "1.20",
+    "dataVersion": 3463,
+    "seed": 3717972541989053709,
+    "regionMd5": [
+      "900baf16ad9a3d2fb36fef27d1e100ab",
+      "e13b2b70343421eb07cf40cfd68840d5",
+      "14baf096cd2334fa0e86f60038da5fdf",
+      "0d827bde6d875b2f36ac2ca5ee91b086"
+    ]
+  },
+  "axes": {
+    "up": "Y",
+    "mapping": "mc(x,0,z) -> unity(x,0,z) 同号",
+    "blockSizeMeters": 1.0
+  },
+  "bounds": {
+    "chunkX": [
+      -16,
+      12
+    ],
+    "chunkZ": [
+      -14,
+      14
+    ],
+    "blockX": [
+      -256,
+      207
+    ],
+    "blockZ": [
+      -224,
+      239
+    ],
+    "blockY": [
+      -64,
+      319
+    ],
+    "surfaceYRange": [
+      36,
+      303
+    ]
+  },
+  "spawn": {
+    "block": [
+      -16,
+      63,
+      16
+    ],
+    "chunk": [
+      -1,
+      1
+    ]
+  },
+  "viewpoint": [
+    149.5,
+    307.0,
+    -76.5
+  ],
+  "spawnView": [
+    -13.5,
+    64.2,
+    25.5
+  ],
+  "cellSize": 8,
+  "bandDefault": 8,
+  "blocks": "blocks.json",
+  "cells": [
+    {
+      "file": "cells/c-2_-2.vxcell",
+      "cellX": -2,
+      "cellZ": -2,
+      "chunkMinX": -16,
+      "chunkMaxX": -9,
+      "chunkMinZ": -14,
+      "chunkMaxZ": -9,
+      "chunks": 48,
+      "bytes": 245347,
+      "md5": "a23e54e4adccfbd84c94fd0179fbbca2"
+    },
+    {
+      "file": "cells/c-2_-1.vxcell",
+      "cellX": -2,
+      "cellZ": -1,
+      "chunkMinX": -16,
+      "chunkMaxX": -9,
+      "chunkMinZ": -8,
+      "chunkMaxZ": -1,
+      "chunks": 64,
+      "bytes": 301182,
+      "md5": "0c4cbcbeac505dd2befad5e9774e5bbd"
+    },
+    {
+      "file": "cells/c-2_0.vxcell",
+      "cellX": -2,
+      "cellZ": 0,
+      "chunkMinX": -16,
+      "chunkMaxX": -9,
+      "chunkMinZ": 0,
+      "chunkMaxZ": 7,
+      "chunks": 64,
+      "bytes": 257776,
+      "md5": "45f430427b459f7f7e96bdb5498e0a62"
+    },
+    {
+      "file": "cells/c-2_1.vxcell",
+      "cellX": -2,
+      "cellZ": 1,
+      "chunkMinX": -16,
+      "chunkMaxX": -9,
+      "chunkMinZ": 8,
+      "chunkMaxZ": 14,
+      "chunks": 56,
+      "bytes": 266005,
+      "md5": "a6d9a8a2e975a9d8084173f11d8df207"
+    },
+    {
+      "file": "cells/c-1_-2.vxcell",
+      "cellX": -1,
+      "cellZ": -2,
+      "chunkMinX": -8,
+      "chunkMaxX": -1,
+      "chunkMinZ": -14,
+      "chunkMaxZ": -9,
+      "chunks": 48,
+      "bytes": 270915,
+      "md5": "cc8aa54debe883846452b8bf26cc52a7"
+    },
+    {
+      "file": "cells/c-1_-1.vxcell",
+      "cellX": -1,
+      "cellZ": -1,
+      "chunkMinX": -8,
+      "chunkMaxX": -1,
+      "chunkMinZ": -8,
+      "chunkMaxZ": -1,
+      "chunks": 64,
+      "bytes": 349810,
+      "md5": "f77161e086448fdeb4a8c626ad1b2367"
+    },
+    {
+      "file": "cells/c-1_0.vxcell",
+      "cellX": -1,
+      "cellZ": 0,
+      "chunkMinX": -8,
+      "chunkMaxX": -1,
+      "chunkMinZ": 0,
+      "chunkMaxZ": 7,
+      "chunks": 64,
+      "bytes": 217284,
+      "md5": "81a104877a0f8cfeda228f423448677f"
+    },
+    {
+      "file": "cells/c-1_1.vxcell",
+      "cellX": -1,
+      "cellZ": 1,
+      "chunkMinX": -8,
+      "chunkMaxX": -1,
+      "chunkMinZ": 8,
+      "chunkMaxZ": 14,
+      "chunks": 56,
+      "bytes": 239816,
+      "md5": "e964ecf95154279b8395efd5983d7bb1"
+    },
+    {
+      "file": "cells/c0_-2.vxcell",
+      "cellX": 0,
+      "cellZ": -2,
+      "chunkMinX": 0,
+      "chunkMaxX": 7,
+      "chunkMinZ": -14,
+      "chunkMaxZ": -9,
+      "chunks": 48,
+      "bytes": 221364,
+      "md5": "4010077e862ab1a5bcfb0487820855f4"
+    },
+    {
+      "file": "cells/c0_-1.vxcell",
+      "cellX": 0,
+      "cellZ": -1,
+      "chunkMinX": 0,
+      "chunkMaxX": 7,
+      "chunkMinZ": -8,
+      "chunkMaxZ": -1,
+      "chunks": 64,
+      "bytes": 294455,
+      "md5": "9960e2c36e837846a91abe9ed5615a15"
+    },
+    {
+      "file": "cells/c0_0.vxcell",
+      "cellX": 0,
+      "cellZ": 0,
+      "chunkMinX": 0,
+      "chunkMaxX": 7,
+      "chunkMinZ": 0,
+      "chunkMaxZ": 7,
+      "chunks": 64,
+      "bytes": 227107,
+      "md5": "20b22f1bfb2e15dbe20cf8a755221c9d"
+    },
+    {
+      "file": "cells/c0_1.vxcell",
+      "cellX": 0,
+      "cellZ": 1,
+      "chunkMinX": 0,
+      "chunkMaxX": 7,
+      "chunkMinZ": 8,
+      "chunkMaxZ": 14,
+      "chunks": 56,
+      "bytes": 217824,
+      "md5": "7909bc408006b353117e177232e8172c"
+    },
+    {
+      "file": "cells/c1_-2.vxcell",
+      "cellX": 1,
+      "cellZ": -2,
+      "chunkMinX": 8,
+      "chunkMaxX": 12,
+      "chunkMinZ": -14,
+      "chunkMaxZ": -9,
+      "chunks": 30,
+      "bytes": 186923,
+      "md5": "1da8722b52cf21dd1b5fd5c50e0d927c"
+    },
+    {
+      "file": "cells/c1_-1.vxcell",
+      "cellX": 1,
+      "cellZ": -1,
+      "chunkMinX": 8,
+      "chunkMaxX": 12,
+      "chunkMinZ": -8,
+      "chunkMaxZ": -1,
+      "chunks": 40,
+      "bytes": 253989,
+      "md5": "afac2e9a7a1416ca1bdc1fdba3283fda"
+    },
+    {
+      "file": "cells/c1_0.vxcell",
+      "cellX": 1,
+      "cellZ": 0,
+      "chunkMinX": 8,
+      "chunkMaxX": 12,
+      "chunkMinZ": 0,
+      "chunkMaxZ": 7,
+      "chunks": 40,
+      "bytes": 182227,
+      "md5": "a5d90526aa8c5cdb9328d5e96cb2e413"
+    },
+    {
+      "file": "cells/c1_1.vxcell",
+      "cellX": 1,
+      "cellZ": 1,
+      "chunkMinX": 8,
+      "chunkMaxX": 12,
+      "chunkMinZ": 8,
+      "chunkMaxZ": 14,
+      "chunks": 35,
+      "bytes": 116018,
+      "md5": "3f4a26bb97ac846faa0655e945b5aabf"
+    }
+  ]
+}
