@@ -1,0 +1,40 @@
+# ---- Unity ----
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+[Mm]emoryCaptures/
+[Rr]ecordings/
+
+# ---- 构建/产物 ----
+*.apk
+*.aab
+*.unitypackage
+*.app
+crashlytics-build.properties
+.utmp/
+
+# ---- IDE / 工程文件 ----
+.vs/
+.idea/
+.vscode/
+*.csproj
+*.sln
+*.slnx
+*.suo
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# ---- 系统 ----
+.DS_Store
+Thumbs.db
