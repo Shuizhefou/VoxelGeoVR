@@ -7,7 +7,8 @@ namespace VoxelGeoVR
     /// <summary>体素 -> 网格：只生成"可见方块集合"的边界面（隐藏面剔除）。</summary>
     public static class ChunkMesher
     {
-        // 与 VxChunk.Id 的邻居查询配合：越界当作空气，chunk 边界出双面（被埋在地下，看不见）
+        // 6 邻居查询：同 chunk 内直接查，跨 chunk 边界由 SampleId 去相邻 chunk 取，
+        // 相邻 chunk 数据不在（地图边缘/未加载）时按空气处理，所以地图边界仍会出立面。
         static readonly Vector3Int[] Dirs =
         {
             new Vector3Int(0, 1, 0), new Vector3Int(0, -1, 0),
@@ -34,6 +35,27 @@ namespace VoxelGeoVR
         static readonly float[] Shades = { 1.00f, 0.50f, 0.80f, 0.80f, 0.66f, 0.66f };
 
         /// <summary>
+        /// 跨 chunk 边界取方块 id：x/z 越界时到相邻 chunk 的对应边列去取，
+        /// 邻居数据缺失（地图边缘 / 未加载）才返回空气。只查 6 邻居，x 与 z 不会同时越界。
+        /// </summary>
+        private static ushort SampleId(VxChunk c, VxChunk xm, VxChunk xp, VxChunk zm, VxChunk zp,
+                                       int x, int y, int z)
+        {
+            if (z >= 0 && z < 16)
+            {
+                if (x >= 0 && x < 16) return c.Id(x, y, z);
+                if (x < 0) return xm != null ? xm.Id(15, y, z) : (ushort)0;
+                return xp != null ? xp.Id(0, y, z) : (ushort)0;
+            }
+            if (x >= 0 && x < 16)
+            {
+                if (z < 0) return zm != null ? zm.Id(x, y, 15) : (ushort)0;
+                return zp != null ? zp.Id(x, y, 0) : (ushort)0;
+            }
+            return 0;
+        }
+
+        /// <summary>
         /// 生成"可见集合"的封闭边界：
         /// 可见方块与不可见邻居（空气 / 被筛掉 / 未选中）之间的面全部生成，
         /// 可见方块之间的面剔除。这样只显示铁矿时，每个矿脉都是完整封闭的浮空岛。
@@ -41,7 +63,9 @@ namespace VoxelGeoVR
         /// </summary>
         public static void BuildInto(Mesh mesh, VxChunk c, VoxelPalette pal, int band, bool[] visible,
                                      List<Vector3> verts, List<Vector3> normals,
-                                     List<Color32> colors, List<int> tris)
+                                     List<Color32> colors, List<int> tris,
+                                     VxChunk xMinus = null, VxChunk xPlus = null,
+                                     VxChunk zMinus = null, VxChunk zPlus = null)
         {
             verts.Clear();
             normals.Clear();
@@ -78,7 +102,8 @@ namespace VoxelGeoVR
                         for (int f = 0; f < 6; f++)
                         {
                             var dir = Dirs[f];
-                            ushort nid = c.Id(x + dir.x, y + dir.y, z + dir.z);
+                            ushort nid = SampleId(c, xMinus, xPlus, zMinus, zPlus,
+                                                  x + dir.x, y + dir.y, z + dir.z);
                             bool neighborVisible = pal.IsSolid(nid) &&
                                 (visible == null || (nid < visible.Length && visible[nid]));
                             if (neighborVisible) continue;

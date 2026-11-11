@@ -34,6 +34,7 @@ namespace VoxelGeoVR
         readonly Dictionary<Vector2Int, GameObject> live = new Dictionary<Vector2Int, GameObject>();
         readonly Dictionary<Vector2Int, VxChunk> chunkData = new Dictionary<Vector2Int, VxChunk>();
         readonly List<Vector2Int> scratch = new List<Vector2Int>();
+        readonly List<Vector2Int> pruneScratch = new List<Vector2Int>();
 
         readonly List<Vector3> verts = new List<Vector3>(8192);
         readonly List<Vector3> normals = new List<Vector3>(8192);
@@ -260,7 +261,12 @@ namespace VoxelGeoVR
                         }
                     }
                     if (bestCell == null) break;
-                    CreateChunkObject(VxCellReader.DecodeChunk(bestCell, bestEntry));
+                    var buildKey = new Vector2Int(bestCell.cellX * 8 + bestEntry.cx,
+                                                  bestCell.cellZ * 8 + bestEntry.cz);
+                    VxChunk buildChunk;
+                    if (!chunkData.TryGetValue(buildKey, out buildChunk))
+                        buildChunk = VxCellReader.DecodeChunk(bestCell, bestEntry);
+                    CreateChunkObject(buildChunk);
                     yield return null;
                 }
 
@@ -289,12 +295,59 @@ namespace VoxelGeoVR
                     cells.Remove(scratch[i]);
                 }
 
+                PruneChunkCache(ccx, ccz);
                 yield return null;
             }
         }
 
-        bool HasLiveChunkOfCell(Vector2Int cellKey)
+        /// <summary>
+        /// 取相邻 chunk 的体素数据：先查缓存，再从已加载的 cell 里解码并缓存。
+        /// 返回 null 表示邻居不存在（地图边缘）或所在 cell 未加载 —— 此时边界按空气处理，仍会出立面。
+        /// </summary>
+        VxChunk GetNeighborChunk(int cx, int cz)
         {
+            var key = new Vector2Int(cx, cz);
+            VxChunk cached;
+            if (chunkData.TryGetValue(key, out cached)) return cached;
+
+            int cellX = cx >> 3;              // 负数右移即向下取整，与 8×8 cell 划分一致
+            int cellZ = cz >> 3;
+            VxCell cell;
+            if (!cells.TryGetValue(new Vector2Int(cellX, cellZ), out cell)) return null;
+
+            VxCell.ChunkEntry entry;
+            if (!cell.lookup.TryGetValue(VxCell.Key(cx - cellX * 8, cz - cellZ * 8), out entry)) return null;
+
+            var chunk = VxCellReader.DecodeChunk(cell, entry);
+            chunkData[key] = chunk;           // 缓存，避免每次建网格都重解
+            return chunk;
+        }
+
+        VxChunk NeighborOf(VxChunk c, int dx, int dz)
+        {
+            return c == null ? null : GetNeighborChunk(c.chunkX + dx, c.chunkZ + dz);
+        }
+
+        /// <summary>邻居缓存只保留 live chunk 附近，超出按距离从远到近丢弃，防止内存随漫游一直涨。</summary>
+        void PruneChunkCache(int ccx, int ccz)
+        {
+            int limit = live.Count + 24;
+            if (chunkData.Count <= limit) return;
+            pruneScratch.Clear();
+            foreach (var kv in chunkData)
+                if (!live.ContainsKey(kv.Key)) pruneScratch.Add(kv.Key);
+            if (pruneScratch.Count == 0) return;
+            pruneScratch.Sort((a, b) =>
+            {
+                int da = (a.x - ccx) * (a.x - ccx) + (a.y - ccz) * (a.y - ccz);
+                int db = (b.x - ccx) * (b.x - ccx) + (b.y - ccz) * (b.y - ccz);
+                return db.CompareTo(da);
+            });
+            for (int i = 0; i < pruneScratch.Count && chunkData.Count > limit; i++)
+                chunkData.Remove(pruneScratch[i]);
+        }
+
+        bool HasLiveChunkOfCell(Vector2Int cellKey)        {
             foreach (var kv in live)
             {
                 if (Mathf.FloorToInt(kv.Key.x / 8f) == cellKey.x && Mathf.FloorToInt(kv.Key.y / 8f) == cellKey.y)
@@ -342,7 +395,9 @@ namespace VoxelGeoVR
             go.transform.position = new Vector3(chunk.chunkX * 16f, 0f, chunk.chunkZ * 16f);
 
             var mesh = new Mesh { name = go.name };
-            ChunkMesher.BuildInto(mesh, chunk, palette, band, currentVisibility, verts, normals, colors, tris);
+            ChunkMesher.BuildInto(mesh, chunk, palette, band, currentVisibility, verts, normals, colors, tris,
+                                  NeighborOf(chunk, -1, 0), NeighborOf(chunk, 1, 0),
+                                  NeighborOf(chunk, 0, -1), NeighborOf(chunk, 0, 1));
 
             var mf = go.AddComponent<MeshFilter>();
             mf.sharedMesh = mesh;
@@ -587,7 +642,9 @@ namespace VoxelGeoVR
             if (mf == null || mr == null) return;
 
             var mesh = new Mesh { name = go.name };
-            ChunkMesher.BuildInto(mesh, chunk, palette, band, visible, verts, normals, colors, tris);
+            ChunkMesher.BuildInto(mesh, chunk, palette, band, visible, verts, normals, colors, tris,
+                                  NeighborOf(chunk, -1, 0), NeighborOf(chunk, 1, 0),
+                                  NeighborOf(chunk, 0, -1), NeighborOf(chunk, 0, 1));
 
             var old = mf.sharedMesh;
             if (old != null)
