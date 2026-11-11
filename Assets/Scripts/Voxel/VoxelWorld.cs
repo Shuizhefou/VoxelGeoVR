@@ -16,7 +16,7 @@ namespace VoxelGeoVR
 
         [Header("参数")]
         public int streamRadius = 4;     // 可见半径（chunk）
-        public int band = 8;             // 地表以下保留层数
+        public int band = 0;             // 0 = 全高度（不裁剪）；>0 = 只保留地表以下 band 层
         public bool autoStart = true;
         public bool showHud = true;
 
@@ -40,6 +40,9 @@ namespace VoxelGeoVR
         public int TotalVerts { get; private set; }
         public int TotalTris { get; private set; }
         public VxWorldManifest Manifest { get { return manifest; } }
+
+        Vector3 anchorPos;
+        int anchorFrames;
 
         class TextResult { public string text; public string error; }
         class BytesResult { public byte[] data; public string error; }
@@ -167,6 +170,11 @@ namespace VoxelGeoVR
             var root = view.root;
             root.position = p;
             view.localPosition = Vector3.zero;
+            anchorPos = p;
+            anchorFrames = 120;      // 头 2 秒每帧钉住，避免任何输入/漂移把相机带到地下
+            Debug.Log(string.Format("[VoxelWorld] teleport want={0} root={1} camLocal={2} camWorld={3} camParent={4}",
+                p.ToString("F2"), root.position.ToString("F2"), view.localPosition.ToString("F2"),
+                view.position.ToString("F2"), view.parent != null ? view.parent.name : "-"));
             if (manifest.bounds != null && manifest.bounds.chunkX != null && manifest.bounds.chunkX.Length >= 2)
             {
                 float cx = (manifest.bounds.chunkX[0] + manifest.bounds.chunkX[1]) * 8f + 8f;
@@ -410,6 +418,14 @@ namespace VoxelGeoVR
             return built;
         }
 
+        void LateUpdate()
+        {
+            if (anchorFrames <= 0 || view == null) return;
+            anchorFrames--;
+            view.root.position = anchorPos;
+            view.localPosition = Vector3.zero;
+        }
+
         void OnGUI()
         {
             if (!showHud) return;
@@ -419,7 +435,8 @@ namespace VoxelGeoVR
             string text = string.Format(
                 "VoxelGeoVR  {0}\nchunks {1}   cells {2}   verts {3}\ntris {4}   band {5}   R {6}\npos ({7:F0}, {8:F0}, {9:F0})   fps {10:F0}\n{11}",
                 manifest != null ? manifest.name : "-", live.Count, cells.Count, TotalVerts,
-                TotalTris, band, streamRadius, p.x, p.y, p.z, 1f / Mathf.Max(Time.smoothDeltaTime, 1e-4f),
+                TotalTris, band > 0 ? band.ToString() : "全高", streamRadius,
+                p.x, p.y, p.z, 1f / Mathf.Max(Time.smoothDeltaTime, 1e-4f),
                 status);
             GUI.Label(new Rect(16, 120, 1100, 220), text, style);
         }

@@ -65,7 +65,7 @@
     25.5
   ],
   "cellSize": 8,
-  "bandDefault": 8,
+  "bandDefault": 0,
   "blocks": "blocks.json",
   "cells": [
     {

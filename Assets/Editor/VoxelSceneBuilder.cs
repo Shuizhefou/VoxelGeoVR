@@ -35,6 +35,7 @@ namespace VoxelGeoVR.EditorTools
             var rigGo = new GameObject("CameraRig");
             rigGo.transform.position = new Vector3(0f, 80f, 0f);
             var rig = rigGo.AddComponent<CameraRig>();
+            rig.mode = 1;               // 手机上默认走屏幕按钮
 
             var camGo = new GameObject("Main Camera");
             camGo.transform.SetParent(rigGo.transform, false);
@@ -61,7 +62,7 @@ namespace VoxelGeoVR.EditorTools
             world.autoStart = true;
             world.showHud = true;
             world.streamRadius = 4;
-            world.band = 8;
+            world.band = 0;          // 全高度提取，不做地表裁剪
 
             Directory.CreateDirectory("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);

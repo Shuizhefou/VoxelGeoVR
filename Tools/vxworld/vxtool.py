@@ -285,11 +285,11 @@ def encode_chunk(chunk, name2id, solid_ids, unknown, band, stats_out=None):
                     top[col] = y + MIN_Y
                     break
 
-    # 暴露面统计（与 Unity 端一致：按 chunk 的 y 窗口 [min(top)-band+1, max(top)]）
+    # 暴露面统计（与 Unity 端一致：band>0 取 y 窗口 [min(top)-band+1, max(top)]；band<=0 取全高度）
     faces = 0
     tops = [t for t in top if t != -32768]
     if tops:
-        y_lo = max(min(tops) - band + 1, MIN_Y)
+        y_lo = max(min(tops) - band + 1, MIN_Y) if band > 0 else MIN_Y
         y_hi = min(max(tops), MIN_Y + SY - 1)
         for y in range(y_lo, y_hi + 1):
             yi = y - MIN_Y

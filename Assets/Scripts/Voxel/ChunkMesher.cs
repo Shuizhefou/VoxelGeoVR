@@ -42,8 +42,9 @@ namespace VoxelGeoVR
             colors.Clear();
             tris.Clear();
 
-            // 按 chunk 取一个 y 窗口（而不是按列裁剪）：按列裁剪会把树冠下面的地面切掉，
+            // 按 chunk 取 y 窗口（而不是按列裁剪）：按列裁剪会把树冠下面的地面切掉，
             // 树/悬崖会变成"悬空薄片"。窗口 = [min(top)-band+1, max(top)]。
+            // band <= 0 表示不裁剪：整个 chunk 从最底层 section 到最高点都出网格。
             int baseY = c.BaseY;
             int ymin = int.MaxValue, ymax = int.MinValue;
             for (int i = 0; i < 256; i++)
@@ -54,7 +55,7 @@ namespace VoxelGeoVR
                 if (t > ymax) ymax = t;
             }
             if (ymin == int.MaxValue) return;
-            ymin = Mathf.Max(ymin - band + 1, baseY);
+            ymin = band > 0 ? Mathf.Max(ymin - band + 1, baseY) : baseY;
             ymax = Mathf.Min(ymax, baseY + c.sectionCount * 16 - 1);
 
             for (int y = ymin; y <= ymax; y++)
