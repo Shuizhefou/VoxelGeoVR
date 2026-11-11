@@ -108,7 +108,7 @@ namespace VoxelGeoVR
 
             ApplyPlane();
             PushGlobals();
-            UpdateCarve();
+            UpdateEnvelope();
             UpdateSectionViewport();
             ApplyMaterialMode();
         }
@@ -227,17 +227,13 @@ namespace VoxelGeoVR
             Shader.SetGlobalFloat("_FadeSoftness", Mathf.Max(0.75f, fadeRadius * 0.2f));
             Vector3 c = sourceCamera != null ? sourceCamera.transform.position : Vector3.zero;
             Shader.SetGlobalVector("_FadeCenter", new Vector4(c.x, c.y, c.z, 0f));
-
-            Shader.SetGlobalFloat("_CarveEnabled", fadeEnabled ? 1f : 0f);
-            Shader.SetGlobalVector("_CarveCenter", new Vector4(c.x, c.y, c.z, 0f));
-            Shader.SetGlobalFloat("_CarveRadius", Mathf.Max(0.01f, fadeRadius));
         }
 
-        void UpdateCarve()
+        void UpdateEnvelope()
         {
             if (world == null) return;
             Vector3 c = sourceCamera != null ? sourceCamera.transform.position : Vector3.zero;
-            world.SetCarve(fadeEnabled, c, Mathf.Max(0.01f, fadeRadius));
+            world.SetEnvelope(fadeEnabled, c, Mathf.Max(0.01f, fadeRadius));
         }
 
         // ------------------------------------------------------------------ B：展示框
@@ -553,7 +549,7 @@ namespace VoxelGeoVR
             y += 54f * s;
 
             GUI.Label(new Rect(x, y, w, 54f * s),
-                "半径内普通面被裁掉，另建近处封闭壳补出内壁/洞穴面；\n4x4 Bayer 点阵做虚化，不重建整张地图。",
+                "普通表面按距离虚化；半径边界生成不透明岩层包络；\n球内洞穴壁/水面仍按距离虚化，包络不受透明度影响。",
                 smallStyle);
         }
 

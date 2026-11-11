@@ -14,7 +14,7 @@ namespace VoxelGeoVR.EditorTools
         public const string ScenePath = "Assets/Scenes/Voxel.unity";
         public const string MaterialPath = "Assets/Materials/Voxel.mat";
         public const string DoubleSidedMaterialPath = "Assets/Materials/VoxelDoubleSided.mat";
-        public const string CarveMaterialPath = "Assets/Materials/VoxelCarve.mat";
+        public const string EnvelopeMaterialPath = "Assets/Materials/VoxelEnvelope.mat";
         public const string ShaderName = "VoxelGeoVR/VoxelVertexColor";
 
         [MenuItem("VoxelGeoVR/Build Voxel Scene")]
@@ -33,7 +33,7 @@ namespace VoxelGeoVR.EditorTools
             // 材质资产（必须是 .mat，否则 shader 不进包）
             var mat = GetOrCreateMaterial();
             var doubleMat = GetOrCreateDoubleSidedMaterial();
-            var carveMat = GetOrCreateCarveMaterial();
+            var envelopeMat = GetOrCreateEnvelopeMaterial();
 
             // 相机架
             var rigGo = new GameObject("CameraRig");
@@ -62,7 +62,7 @@ namespace VoxelGeoVR.EditorTools
             var worldGo = new GameObject("VoxelWorld");
             var world = worldGo.AddComponent<VoxelWorld>();
             world.voxelMaterial = mat;
-            world.carveMaterial = carveMat;
+            world.envelopeMaterial = envelopeMat;
             world.view = camGo.transform;
             world.autoStart = true;
             world.showHud = true;
@@ -124,21 +124,21 @@ namespace VoxelGeoVR.EditorTools
             return mat;
         }
 
-        /// <summary>A 功能近处封闭壳材质：双面 + 不被 carve 裁掉。</summary>
-        public static Material GetOrCreateCarveMaterial()
+        /// <summary>A 功能岩层包络材质：双面 + 不参与虚化。</summary>
+        public static Material GetOrCreateEnvelopeMaterial()
         {
-            var mat = AssetDatabase.LoadAssetAtPath<Material>(CarveMaterialPath);
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(EnvelopeMaterialPath);
             if (mat == null)
             {
                 var baseMat = GetOrCreateMaterial();
                 var shader = baseMat != null ? baseMat.shader : Shader.Find(ShaderName);
                 if (shader == null) shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Shaders/VoxelVertexColor.shader");
                 Directory.CreateDirectory("Assets/Materials");
-                mat = new Material(shader) { name = "VoxelCarve" };
-                AssetDatabase.CreateAsset(mat, CarveMaterialPath);
+                mat = new Material(shader) { name = "VoxelEnvelope" };
+                AssetDatabase.CreateAsset(mat, EnvelopeMaterialPath);
             }
             mat.SetFloat("_CullMode", 0f);
-            mat.SetFloat("_CarveReceiver", 0f);
+            mat.SetFloat("_NoFade", 1f);
             EditorUtility.SetDirty(mat);
             return mat;
         }

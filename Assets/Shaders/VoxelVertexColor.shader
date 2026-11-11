@@ -3,10 +3,10 @@ Shader "VoxelGeoVR/VoxelVertexColor"
     Properties
     {
         _Tint ("Tint", Color) = (1,1,1,1)
-        // 2 = Back（默认单面），0 = Off（剖面双面 / 近处封闭壳材质用）
+        // 2 = Back，0 = Off（剖面双面 / 包络壳材质用）
         _CullMode ("Cull Mode", Float) = 2
-        // 1 = 普通 chunk 网格（会被近处球形挖空裁掉）；0 = 近处封闭壳网格（不裁）
-        _CarveReceiver ("Carve Receiver", Float) = 1
+        // 1 = 不参与虚化（A 的岩层包络面）；0 = 正常按距离虚化
+        _NoFade ("No Fade", Float) = 0
     }
 
     SubShader
@@ -32,7 +32,7 @@ Shader "VoxelGeoVR/VoxelVertexColor"
             CBUFFER_START(UnityPerMaterial)
                 half4 _Tint;
                 float _CullMode;
-                float _CarveReceiver;
+                float _NoFade;
             CBUFFER_END
 
             // ------------------------------------------------------------------
@@ -47,10 +47,6 @@ Shader "VoxelGeoVR/VoxelVertexColor"
             float  _FadeStrength;       // 0..1，1 = 完全透明
             float  _FadeSoftness;       // 边缘过渡宽度（格）
             float4 _FadeCenter;         // 主相机世界坐标
-
-            float  _CarveEnabled;       // 0/1，A 功能开启时把普通网格在半径内裁掉
-            float4 _CarveCenter;        // 主相机位置
-            float  _CarveRadius;        // 与 A 的虚化半径一致
 
             struct Attributes
             {
@@ -98,29 +94,12 @@ Shader "VoxelGeoVR/VoxelVertexColor"
                     clip(dot(i.positionWS, _SectionNormal.xyz) + _SectionD);
                 }
 
-                // A：普通 chunk 网格在相机球形半径内让位给"近处封闭壳"网格。
-                // 壳网格（_CarveReceiver=0）自己不被裁，负责产生新的内壁面。
-                if (_CarveEnabled > 0.5 && _CarveReceiver > 0.5)
+                // A：普通网格按距离点阵渐隐；包络面 _NoFade=1，保持完全不透明。
+                if (_FadeEnabled > 0.5 && _NoFade < 0.5)
                 {
-                    if (distance(_CarveCenter.xyz, i.positionWS) < _CarveRadius + 1.0)
-                        discard;
-                }
-
-                // A：普通网格按距离渐隐；近处封闭壳整层按"透明程度"抖动，
-                // 否则壳刚好在半径处，按距离算会永远是不透明的。
-                if (_FadeEnabled > 0.5)
-                {
-                    float alpha;
-                    if (_CarveReceiver < 0.5)
-                    {
-                        alpha = 1.0 - _FadeStrength;
-                    }
-                    else
-                    {
-                        float dist = distance(_FadeCenter.xyz, i.positionWS);
-                        float edge = 1.0 - smoothstep(_FadeRadius - _FadeSoftness, _FadeRadius, dist);
-                        alpha = 1.0 - _FadeStrength * edge;
-                    }
+                    float dist = distance(_FadeCenter.xyz, i.positionWS);
+                    float edge = 1.0 - smoothstep(_FadeRadius - _FadeSoftness, _FadeRadius, dist);
+                    float alpha = 1.0 - _FadeStrength * edge;
                     float threshold = Bayer4(i.positionCS.xy);
                     clip(alpha - threshold);
                 }

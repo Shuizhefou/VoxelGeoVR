@@ -12,7 +12,7 @@ namespace VoxelGeoVR
     {
         [Header("引用")]
         public Material voxelMaterial;
-        public Material carveMaterial;
+        public Material envelopeMaterial;
         public Transform view;
 
         [Header("参数")]
@@ -43,14 +43,14 @@ namespace VoxelGeoVR
         bool[] currentVisibility;      // null = 所有 solid 方块可见
         Coroutine rebuildRoutine;
 
-        GameObject carveGo;
-        Mesh carveMesh;
-        MeshRenderer carveMr;
-        ushort[] carveVolume;
-        bool carveDirty = true;
-        bool carveWasOn;
-        float carveLastRadius = -1f;
-        Vector3Int carveLastBlock = new Vector3Int(999999, 999999, 999999);
+        GameObject envelopeGo;
+        Mesh envelopeMesh;
+        MeshRenderer envelopeMr;
+        ushort[] envelopeVolume;
+        bool envelopeDirty = true;
+        bool envelopeWasOn;
+        float envelopeLastRadius = -1f;
+        Vector3Int envelopeLastBlock = new Vector3Int(999999, 999999, 999999);
 
         public int ChunkCount { get { return live.Count; } }
         public int CellCount { get { return cells.Count; } }
@@ -355,7 +355,7 @@ namespace VoxelGeoVR
 
             live[key] = go;
             chunkData[key] = chunk;
-            carveDirty = true;
+            envelopeDirty = true;
             TotalVerts += mesh.vertexCount;
             TotalTris += tris.Count / 3;
         }
@@ -373,77 +373,86 @@ namespace VoxelGeoVR
             }
         }
 
-        // ---------------------------------------------------------- A：近处封闭壳
+        // ---------------------------------------------------------- A：岩层包络
         /// <summary>
-        /// A 功能每帧调用。相机跨过方块（或半径变化）时才重建近处封闭壳；
-        /// 普通 chunk 网格由 shader 在半径内 discard，壳网格负责补齐新面。
+        /// A 功能每帧调用。普通 chunk 表面在半径内按距离虚化，
+        /// 这里生成半径边界处"球外实心块朝向球内"的不透明包络面，负责补背景。
+        /// C 正在重建时先隐藏包络，等可见集统一后再重建，避免两套筛选混用。
         /// </summary>
-        public void SetCarve(bool on, Vector3 center, float radius)
+        public void SetEnvelope(bool on, Vector3 center, float radius)
         {
             if (!on)
             {
-                if (carveMr != null) carveMr.enabled = false;
-                carveWasOn = false;
+                if (envelopeMr != null) envelopeMr.enabled = false;
+                envelopeWasOn = false;
                 return;
             }
             if (palette == null) return;
-            EnsureCarveObject();
-            if (carveMaterial == null) return;
+            if (FilterRebuilding)
+            {
+                if (envelopeMr != null) envelopeMr.enabled = false;
+                envelopeDirty = true;
+                envelopeWasOn = false;
+                return;
+            }
+            EnsureEnvelopeObject();
+            if (envelopeMaterial == null) return;
 
-            int step = Mathf.Max(1, Mathf.RoundToInt(radius / 16f));
+            // 包络只做球边界的一层，重建量 O(r^2)；每跨一个方块重建，保证和虚化边界贴合。
+            int step = 1;
             Vector3Int b = new Vector3Int(
                 Mathf.FloorToInt(center.x),
                 Mathf.FloorToInt(center.y),
                 Mathf.FloorToInt(center.z));
 
-            bool moved = Mathf.Abs(b.x - carveLastBlock.x) >= step ||
-                         Mathf.Abs(b.y - carveLastBlock.y) >= step ||
-                         Mathf.Abs(b.z - carveLastBlock.z) >= step;
-            bool radiusChanged = Mathf.Abs(radius - carveLastRadius) > 0.01f;
-            if (!carveDirty && carveWasOn && !moved && !radiusChanged)
+            bool moved = Mathf.Abs(b.x - envelopeLastBlock.x) >= step ||
+                         Mathf.Abs(b.y - envelopeLastBlock.y) >= step ||
+                         Mathf.Abs(b.z - envelopeLastBlock.z) >= step;
+            bool radiusChanged = Mathf.Abs(radius - envelopeLastRadius) > 0.01f;
+            if (!envelopeDirty && envelopeWasOn && !moved && !radiusChanged)
             {
-                if (carveMr != null) carveMr.enabled = carveMesh != null && carveMesh.vertexCount > 0;
+                if (envelopeMr != null) envelopeMr.enabled = envelopeMesh != null && envelopeMesh.vertexCount > 0;
                 return;
             }
 
-            carveDirty = false;
-            carveWasOn = true;
-            carveLastRadius = radius;
-            carveLastBlock = b;
-            RebuildCarve(center, radius);
+            envelopeDirty = false;
+            envelopeWasOn = true;
+            envelopeLastRadius = radius;
+            envelopeLastBlock = b;
+            RebuildEnvelope(center, radius);
         }
 
-        void EnsureCarveObject()
+        void EnsureEnvelopeObject()
         {
-            if (carveGo != null) return;
-            if (carveMaterial == null) ResolveCarveMaterial();
-            if (carveMaterial == null) return;
+            if (envelopeGo != null) return;
+            if (envelopeMaterial == null) ResolveEnvelopeMaterial();
+            if (envelopeMaterial == null) return;
 
-            carveGo = new GameObject("VoxelCarve");
-            carveGo.transform.SetParent(transform, false);
-            var mf = carveGo.AddComponent<MeshFilter>();
-            carveMesh = new Mesh { name = "VoxelCarve" };
-            mf.sharedMesh = carveMesh;
-            carveMr = carveGo.AddComponent<MeshRenderer>();
-            carveMr.sharedMaterial = carveMaterial;
-            carveMr.enabled = false;
-            carveMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            carveMr.receiveShadows = false;
-            carveMr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+            envelopeGo = new GameObject("VoxelEnvelope");
+            envelopeGo.transform.SetParent(transform, false);
+            var mf = envelopeGo.AddComponent<MeshFilter>();
+            envelopeMesh = new Mesh { name = "VoxelEnvelope" };
+            mf.sharedMesh = envelopeMesh;
+            envelopeMr = envelopeGo.AddComponent<MeshRenderer>();
+            envelopeMr.sharedMaterial = envelopeMaterial;
+            envelopeMr.enabled = false;
+            envelopeMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            envelopeMr.receiveShadows = false;
+            envelopeMr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
         }
 
-        void ResolveCarveMaterial()
+        void ResolveEnvelopeMaterial()
         {
-            if (carveMaterial != null) return;
+            if (envelopeMaterial != null) return;
             if (voxelMaterial == null) return;
-            carveMaterial = new Material(voxelMaterial) { name = "VoxelCarve_Runtime" };
-            carveMaterial.SetFloat("_CullMode", 0f);
-            carveMaterial.SetFloat("_CarveReceiver", 0f);
+            envelopeMaterial = new Material(voxelMaterial) { name = "VoxelEnvelope_Runtime" };
+            envelopeMaterial.SetFloat("_CullMode", 0f);
+            envelopeMaterial.SetFloat("_NoFade", 1f);
         }
 
-        void RebuildCarve(Vector3 center, float radius)
+        void RebuildEnvelope(Vector3 center, float radius)
         {
-            if (carveMesh == null || carveMaterial == null) return;
+            if (envelopeMesh == null || envelopeMaterial == null) return;
 
             int minX = Mathf.FloorToInt(center.x - radius - 1f);
             int maxX = Mathf.CeilToInt(center.x + radius + 1f);
@@ -456,9 +465,9 @@ namespace VoxelGeoVR
             int sz = maxZ - minZ + 1;
             int count = sx * sy * sz;
 
-            if (carveVolume == null || carveVolume.Length < count)
-                carveVolume = new ushort[count];
-            System.Array.Clear(carveVolume, 0, count);
+            if (envelopeVolume == null || envelopeVolume.Length < count)
+                envelopeVolume = new ushort[count];
+            System.Array.Clear(envelopeVolume, 0, count);
 
             // 从已解码的 live chunk 直接拷贝包围盒，避免每个体素查字典。
             foreach (var kv in chunkData)
@@ -483,16 +492,16 @@ namespace VoxelGeoVR
                         int dstRow = ((y - minY) * sz + (z - minZ)) * sx;
                         int srcRow = syi * 256 + lz * 16;
                         for (int x = x0; x <= x1; x++)
-                            carveVolume[dstRow + (x - minX)] = c.ids[srcRow + (x - cx0)];
+                            envelopeVolume[dstRow + (x - minX)] = c.ids[srcRow + (x - cx0)];
                     }
                 }
             }
 
-            ChunkMesher.BuildCarveInto(carveMesh, carveVolume, sx, sy, sz,
+            ChunkMesher.BuildEnvelopeInto(envelopeMesh, envelopeVolume, sx, sy, sz,
                 new Vector3Int(minX, minY, minZ), center, radius, palette, currentVisibility,
                 verts, normals, colors, tris);
 
-            carveMr.enabled = carveMesh.vertexCount > 0;
+            envelopeMr.enabled = envelopeMesh.vertexCount > 0;
         }
 
         void DestroyChunk(Vector2Int key)
@@ -501,7 +510,7 @@ namespace VoxelGeoVR
             if (!live.TryGetValue(key, out go)) return;
             live.Remove(key);
             chunkData.Remove(key);
-            carveDirty = true;
+            envelopeDirty = true;
             if (go != null)
             {
                 var mf = go.GetComponent<MeshFilter>();
@@ -525,7 +534,7 @@ namespace VoxelGeoVR
             rebuildRoutine = null;
             FilterRebuilding = false;
             currentVisibility = visible;
-            carveDirty = true;
+            envelopeDirty = true;
             if (palette == null) return;
             rebuildRoutine = StartCoroutine(RebuildVisibilityRoutine(visible));
         }

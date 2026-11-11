@@ -116,16 +116,17 @@ namespace VoxelGeoVR
         }
 
         /// <summary>
-        /// A 功能的"近处封闭壳"：以相机为中心，只生成球内实心区域的表面。
-        /// 球内 solid 与球外 solid / 空气之间的面全部生成，球内 solid-solid 内部面剔除。
-        /// 这样半径内被虚化的方块后面有真实几何，而不是看穿到虚空。
+        /// A 功能的"岩层包络面"：只生成球边界处、球外实心块朝向球内的那层不透明壳。
+        /// 普通 chunk 表面仍在半径内按距离虚化；虚化露出的背景由这层包络补上。
+        /// 条件：球外 solid（visible）且邻居在球内且也是 solid（visible）。
+        /// 球内为空气/被 C 隐藏时，普通 chunk mesh 本身已有对应空气面，不在这里重复生成。
         /// volume 是轴对齐包围盒内的 blockId，index = (y * sz + z) * sx + x。
         /// </summary>
-        public static void BuildCarveInto(Mesh mesh, ushort[] volume, int sx, int sy, int sz,
-                                          Vector3Int origin, Vector3 center, float radius,
-                                          VoxelPalette pal, bool[] visible,
-                                          List<Vector3> verts, List<Vector3> normals,
-                                          List<Color32> colors, List<int> tris)
+        public static void BuildEnvelopeInto(Mesh mesh, ushort[] volume, int sx, int sy, int sz,
+                                             Vector3Int origin, Vector3 center, float radius,
+                                             VoxelPalette pal, bool[] visible,
+                                             List<Vector3> verts, List<Vector3> normals,
+                                             List<Color32> colors, List<int> tris)
         {
             verts.Clear();
             normals.Clear();
@@ -148,29 +149,25 @@ namespace VoxelGeoVR
                         float wy = origin.y + y + 0.5f;
                         float wz = origin.z + z + 0.5f;
                         float dx = wx - center.x, dy = wy - center.y, dz = wz - center.z;
-                        if (dx * dx + dy * dy + dz * dz > r2) continue;
+                        if (dx * dx + dy * dy + dz * dz <= r2) continue;   // 只处理球外块
 
                         Color32 col = pal.Color(id);
                         for (int f = 0; f < 6; f++)
                         {
                             var dir = Dirs[f];
                             int nx = x + dir.x, ny = y + dir.y, nz = z + dir.z;
-                            bool neighborInside = false;
-                            if (nx >= 0 && nx < sx && ny >= 0 && ny < sy && nz >= 0 && nz < sz)
-                            {
-                                ushort nid = volume[(ny * sz + nz) * sx + nx];
-                                bool nvis = pal.IsSolid(nid) &&
-                                    (visible == null || (nid < visible.Length && visible[nid]));
-                                if (nvis)
-                                {
-                                    float nwx = origin.x + nx + 0.5f;
-                                    float nwy = origin.y + ny + 0.5f;
-                                    float nwz = origin.z + nz + 0.5f;
-                                    float ndx = nwx - center.x, ndy = nwy - center.y, ndz = nwz - center.z;
-                                    neighborInside = ndx * ndx + ndy * ndy + ndz * ndz <= r2;
-                                }
-                            }
-                            if (neighborInside) continue;
+                            if (nx < 0 || nx >= sx || ny < 0 || ny >= sy || nz < 0 || nz >= sz) continue;
+
+                            float nwx = origin.x + nx + 0.5f;
+                            float nwy = origin.y + ny + 0.5f;
+                            float nwz = origin.z + nz + 0.5f;
+                            float ndx = nwx - center.x, ndy = nwy - center.y, ndz = nwz - center.z;
+                            if (ndx * ndx + ndy * ndy + ndz * ndz > r2) continue; // 邻居必须在球内
+
+                            ushort nid = volume[(ny * sz + nz) * sx + nx];
+                            bool nvis = pal.IsSolid(nid) &&
+                                (visible == null || (nid < visible.Length && visible[nid]));
+                            if (!nvis) continue; // 球内空气/被筛掉：由普通表面负责
 
                             var q = Quads[f];
                             int vi = verts.Count;
@@ -183,7 +180,6 @@ namespace VoxelGeoVR
                             Vector3 n = new Vector3(dir.x, dir.y, dir.z);
                             for (int k = 0; k < 4; k++)
                             {
-                                // 绝对世界坐标：Carve 网格挂在原点。
                                 verts.Add(new Vector3(
                                     origin.x + x + q[k].x,
                                     origin.y + y + q[k].y,
