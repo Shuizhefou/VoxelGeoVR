@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
 
 namespace VoxelGeoVR
@@ -37,6 +38,33 @@ namespace VoxelGeoVR
         bool dragging;
         GUIStyle overlayStyle;
         int overlayFont;
+
+        void OnEnable()
+        {
+            RenderPipelineManager.beginCameraRendering += OnBeginCameraRendering;
+            RenderPipelineManager.endCameraRendering += OnEndCameraRendering;
+        }
+
+        void OnDisable()
+        {
+            RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
+            RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
+            active = false;
+            if (SectionCamera != null) SectionCamera.enabled = false;
+            ReleaseTexture();
+        }
+
+        void OnBeginCameraRendering(ScriptableRenderContext context, Camera cam)
+        {
+            if (active && cam == SectionCamera)
+                Shader.SetGlobalFloat("_SectionEnabled", 1f);
+        }
+
+        void OnEndCameraRendering(ScriptableRenderContext context, Camera cam)
+        {
+            if (cam == SectionCamera)
+                Shader.SetGlobalFloat("_SectionEnabled", 0f);
+        }
 
         public void SetActive(bool on)
         {
@@ -238,15 +266,10 @@ namespace VoxelGeoVR
             }
         }
 
-        void OnDisable()
-        {
-            active = false;
-            if (SectionCamera != null) SectionCamera.enabled = false;
-            ReleaseTexture();
-        }
-
         void OnDestroy()
         {
+            RenderPipelineManager.beginCameraRendering -= OnBeginCameraRendering;
+            RenderPipelineManager.endCameraRendering -= OnEndCameraRendering;
             ReleaseTexture();
             if (cameraGo != null) Destroy(cameraGo);
         }

@@ -119,7 +119,7 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
---- !u!1 &299984335
+--- !u!1 &577954930
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -127,8 +127,90 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 299984337}
-  - component: {fileID: 299984336}
+  - component: {fileID: 577954933}
+  - component: {fileID: 577954932}
+  - component: {fileID: 577954931}
+  m_Layer: 0
+  m_Name: VoxelWorld
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &577954931
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 577954930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3f8b6c2d94a14e7fb5c1d0a728e64b19, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.VoxelDisplayController
+  world: {fileID: 577954932}
+  sourceCamera: {fileID: 978016632}
+  baseMaterial: {fileID: 2100000, guid: 8663c1aa63fcb814ea8a3a24faa85494, type: 2}
+  doubleSidedMaterial: {fileID: 2100000, guid: b7e4c2a19f3d4e6d8a1c5b2f7e9d3a60, type: 2}
+  fadeEnabled: 0
+  fadeRadius: 12
+  fadeTransparency: 60
+  sectionEnabled: 0
+  sectionAxis: 0
+  sectionPosition: 0
+  sectionYaw: 0
+  sectionPitch: 0
+  sectionOffset: 0
+  filterEnabled: 0
+  filterMode: 0
+--- !u!114 &577954932
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 577954930}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6459908c36efcff498780fe526040006, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.VoxelWorld
+  voxelMaterial: {fileID: 2100000, guid: 8663c1aa63fcb814ea8a3a24faa85494, type: 2}
+  envelopeMaterial: {fileID: 2100000, guid: e5b8d2a03c9f4a7b8d1e6f2a4c0b9d37, type: 2}
+  sectionCapMaterial: {fileID: 2100000, guid: c8f3a6d12e4b49f7a0c5e8b2d6f1a934, type: 2}
+  view: {fileID: 978016635}
+  streamRadius: 4
+  band: 0
+  autoStart: 1
+  showHud: 1
+  status: boot
+  display: {fileID: 0}
+--- !u!4 &577954933
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 577954930}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &793394856
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 793394858}
+  - component: {fileID: 793394857}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -136,13 +218,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!108 &299984336
+--- !u!108 &793394857
 Light:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 299984335}
+  m_GameObject: {fileID: 793394856}
   m_Enabled: 1
   serializedVersion: 12
   m_Type: 1
@@ -201,13 +283,13 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
---- !u!4 &299984337
+--- !u!4 &793394858
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 299984335}
+  m_GameObject: {fileID: 793394856}
   serializedVersion: 2
   m_LocalRotation: {x: 0.44037747, y: -0.26672933, z: 0.13885048, w: 0.8459573}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -216,7 +298,7 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1199587068
+--- !u!1 &978016631
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -224,183 +306,10 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1199587071}
-  - component: {fileID: 1199587070}
-  - component: {fileID: 1199587069}
-  m_Layer: 0
-  m_Name: VoxelWorld
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1199587069
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1199587068}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3f8b6c2d94a14e7fb5c1d0a728e64b19, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.VoxelDisplayController
-  world: {fileID: 1199587070}
-  sourceCamera: {fileID: 1968814335}
-  baseMaterial: {fileID: 2100000, guid: 8663c1aa63fcb814ea8a3a24faa85494, type: 2}
-  doubleSidedMaterial: {fileID: 2100000, guid: b7e4c2a19f3d4e6d8a1c5b2f7e9d3a60, type: 2}
-  fadeEnabled: 0
-  fadeRadius: 12
-  fadeTransparency: 60
-  sectionEnabled: 0
-  sectionAxis: 0
-  sectionPosition: 0
-  sectionYaw: 0
-  sectionPitch: 0
-  sectionOffset: 0
-  filterEnabled: 0
-  filterMode: 0
---- !u!114 &1199587070
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1199587068}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6459908c36efcff498780fe526040006, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.VoxelWorld
-  voxelMaterial: {fileID: 2100000, guid: 8663c1aa63fcb814ea8a3a24faa85494, type: 2}
-  envelopeMaterial: {fileID: 2100000, guid: e5b8d2a03c9f4a7b8d1e6f2a4c0b9d37, type: 2}
-  sectionCapMaterial: {fileID: 2100000, guid: c8f3a6d12e4b49f7a0c5e8b2d6f1a934, type: 2}
-  view: {fileID: 1968814338}
-  streamRadius: 4
-  band: 0
-  autoStart: 1
-  showHud: 1
-  status: boot
-  display: {fileID: 0}
---- !u!4 &1199587071
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1199587068}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1265246298
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1265246299}
-  - component: {fileID: 1265246302}
-  - component: {fileID: 1265246301}
-  - component: {fileID: 1265246300}
-  m_Layer: 0
-  m_Name: CameraRig
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &1265246299
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1265246298}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 80, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children:
-  - {fileID: 1968814338}
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1265246300
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1265246298}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ffcbf04aa50261f4ca4dc4933ab7bcbb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.OnScreenControls
-  rig: {fileID: 1265246302}
-  virtualInput: {fileID: 1265246301}
-  mode: 1
---- !u!114 &1265246301
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1265246298}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c174de0d6933dd3448914878ae2d8810, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.VirtualInput
-  forward: 0
-  back: 0
-  left: 0
-  right: 0
-  up: 0
-  down: 0
-  turnLeft: 0
-  turnRight: 0
---- !u!114 &1265246302
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1265246298}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 95d5547c25124ac42addaad154bcf8e9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.CameraRig
-  cameraTransform: {fileID: 1968814338}
-  virtualInput: {fileID: 1265246301}
-  moveSpeed: 3
-  mouseSensitivity: 1.5
-  turnSpeed: 90
-  gyroSmoothing: 18
-  mode: 1
-  gyroDebug: 0
-  gyroMapping: 3
---- !u!1 &1968814334
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1968814338}
-  - component: {fileID: 1968814335}
-  - component: {fileID: 1968814337}
-  - component: {fileID: 1968814336}
+  - component: {fileID: 978016635}
+  - component: {fileID: 978016632}
+  - component: {fileID: 978016634}
+  - component: {fileID: 978016633}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -408,13 +317,13 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!20 &1968814335
+--- !u!20 &978016632
 Camera:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1968814334}
+  m_GameObject: {fileID: 978016631}
   m_Enabled: 1
   serializedVersion: 2
   m_ClearFlags: 1
@@ -459,13 +368,13 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!114 &1968814336
+--- !u!114 &978016633
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1968814334}
+  m_GameObject: {fileID: 978016631}
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
@@ -503,33 +412,124 @@ MonoBehaviour:
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
   m_Version: 2
---- !u!81 &1968814337
+--- !u!81 &978016634
 AudioListener:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1968814334}
+  m_GameObject: {fileID: 978016631}
   m_Enabled: 1
---- !u!4 &1968814338
+--- !u!4 &978016635
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1968814334}
+  m_GameObject: {fileID: 978016631}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 1265246299}
+  m_Father: {fileID: 1802570561}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1802570560
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1802570561}
+  - component: {fileID: 1802570564}
+  - component: {fileID: 1802570563}
+  - component: {fileID: 1802570562}
+  m_Layer: 0
+  m_Name: CameraRig
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1802570561
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1802570560}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 80, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 978016635}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1802570562
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1802570560}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ffcbf04aa50261f4ca4dc4933ab7bcbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.OnScreenControls
+  rig: {fileID: 1802570564}
+  virtualInput: {fileID: 1802570563}
+  mode: 1
+--- !u!114 &1802570563
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1802570560}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c174de0d6933dd3448914878ae2d8810, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.VirtualInput
+  forward: 0
+  back: 0
+  left: 0
+  right: 0
+  up: 0
+  down: 0
+  turnLeft: 0
+  turnRight: 0
+--- !u!114 &1802570564
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1802570560}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95d5547c25124ac42addaad154bcf8e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::VoxelGeoVR.CameraRig
+  cameraTransform: {fileID: 978016635}
+  virtualInput: {fileID: 1802570563}
+  moveSpeed: 3
+  mouseSensitivity: 1.5
+  turnSpeed: 90
+  gyroSmoothing: 18
+  mode: 1
+  gyroDebug: 0
+  gyroMapping: 3
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
   m_Roots:
-  - {fileID: 299984337}
-  - {fileID: 1265246299}
-  - {fileID: 1199587071}
+  - {fileID: 793394858}
+  - {fileID: 1802570561}
+  - {fileID: 577954933}
