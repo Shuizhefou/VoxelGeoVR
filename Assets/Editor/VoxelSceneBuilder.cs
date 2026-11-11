@@ -13,6 +13,8 @@ namespace VoxelGeoVR.EditorTools
     {
         public const string ScenePath = "Assets/Scenes/Voxel.unity";
         public const string MaterialPath = "Assets/Materials/Voxel.mat";
+        public const string DoubleSidedMaterialPath = "Assets/Materials/VoxelDoubleSided.mat";
+        public const string CarveMaterialPath = "Assets/Materials/VoxelCarve.mat";
         public const string ShaderName = "VoxelGeoVR/VoxelVertexColor";
 
         [MenuItem("VoxelGeoVR/Build Voxel Scene")]
@@ -30,6 +32,8 @@ namespace VoxelGeoVR.EditorTools
 
             // 材质资产（必须是 .mat，否则 shader 不进包）
             var mat = GetOrCreateMaterial();
+            var doubleMat = GetOrCreateDoubleSidedMaterial();
+            var carveMat = GetOrCreateCarveMaterial();
 
             // 相机架
             var rigGo = new GameObject("CameraRig");
@@ -58,11 +62,21 @@ namespace VoxelGeoVR.EditorTools
             var worldGo = new GameObject("VoxelWorld");
             var world = worldGo.AddComponent<VoxelWorld>();
             world.voxelMaterial = mat;
+            world.carveMaterial = carveMat;
             world.view = camGo.transform;
             world.autoStart = true;
             world.showHud = true;
             world.streamRadius = 4;
             world.band = 0;          // 全高度提取，不做地表裁剪
+
+            // 阶段 4：显示交互控制器（A 虚化 / B 剖面 / C 筛选）。
+            // VoxelWorld.Awake 会兜底自动挂一个，这里复用，避免重复组件。
+            var display = worldGo.GetComponent<VoxelDisplayController>();
+            if (display == null) display = worldGo.AddComponent<VoxelDisplayController>();
+            display.world = world;
+            display.sourceCamera = cam;
+            display.baseMaterial = mat;
+            display.doubleSidedMaterial = doubleMat;
 
             Directory.CreateDirectory("Assets/Scenes");
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -87,6 +101,44 @@ namespace VoxelGeoVR.EditorTools
                 mat = new Material(shader) { name = "Voxel" };
                 AssetDatabase.CreateAsset(mat, MaterialPath);
             }
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        /// <summary>剖面展示框用双面材质（Cull Off）。与主材质共用同一 shader，只改 _CullMode。</summary>
+        public static Material GetOrCreateDoubleSidedMaterial()
+        {
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(DoubleSidedMaterialPath);
+            if (mat == null)
+            {
+                var baseMat = GetOrCreateMaterial();
+                var shader = baseMat != null ? baseMat.shader : Shader.Find(ShaderName);
+                if (shader == null) shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Shaders/VoxelVertexColor.shader");
+                Directory.CreateDirectory("Assets/Materials");
+                mat = new Material(shader) { name = "VoxelDoubleSided" };
+                mat.SetFloat("_CullMode", 0f);
+                AssetDatabase.CreateAsset(mat, DoubleSidedMaterialPath);
+            }
+            mat.SetFloat("_CullMode", 0f);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        /// <summary>A 功能近处封闭壳材质：双面 + 不被 carve 裁掉。</summary>
+        public static Material GetOrCreateCarveMaterial()
+        {
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(CarveMaterialPath);
+            if (mat == null)
+            {
+                var baseMat = GetOrCreateMaterial();
+                var shader = baseMat != null ? baseMat.shader : Shader.Find(ShaderName);
+                if (shader == null) shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Shaders/VoxelVertexColor.shader");
+                Directory.CreateDirectory("Assets/Materials");
+                mat = new Material(shader) { name = "VoxelCarve" };
+                AssetDatabase.CreateAsset(mat, CarveMaterialPath);
+            }
+            mat.SetFloat("_CullMode", 0f);
+            mat.SetFloat("_CarveReceiver", 0f);
             EditorUtility.SetDirty(mat);
             return mat;
         }

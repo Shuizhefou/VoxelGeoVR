@@ -12,6 +12,7 @@ namespace VoxelGeoVR
     {
         [Header("引用")]
         public Material voxelMaterial;
+        public Material carveMaterial;
         public Transform view;
 
         [Header("参数")]
@@ -23,11 +24,15 @@ namespace VoxelGeoVR
         [Header("状态")]
         public string status = "boot";
 
+        [Header("显示交互")]
+        public VoxelDisplayController display;
+
         VxWorldManifest manifest;
         VoxelPalette palette;
 
         readonly Dictionary<Vector2Int, VxCell> cells = new Dictionary<Vector2Int, VxCell>();
         readonly Dictionary<Vector2Int, GameObject> live = new Dictionary<Vector2Int, GameObject>();
+        readonly Dictionary<Vector2Int, VxChunk> chunkData = new Dictionary<Vector2Int, VxChunk>();
         readonly List<Vector2Int> scratch = new List<Vector2Int>();
 
         readonly List<Vector3> verts = new List<Vector3>(8192);
@@ -35,11 +40,29 @@ namespace VoxelGeoVR
         readonly List<Color32> colors = new List<Color32>(8192);
         readonly List<int> tris = new List<int>(24000);
 
+        bool[] currentVisibility;      // null = 所有 solid 方块可见
+        Coroutine rebuildRoutine;
+
+        GameObject carveGo;
+        Mesh carveMesh;
+        MeshRenderer carveMr;
+        ushort[] carveVolume;
+        bool carveDirty = true;
+        bool carveWasOn;
+        float carveLastRadius = -1f;
+        Vector3Int carveLastBlock = new Vector3Int(999999, 999999, 999999);
+
         public int ChunkCount { get { return live.Count; } }
         public int CellCount { get { return cells.Count; } }
         public int TotalVerts { get; private set; }
         public int TotalTris { get; private set; }
         public VxWorldManifest Manifest { get { return manifest; } }
+        public VoxelPalette Palette { get { return palette; } }
+
+        public bool FilterRebuilding { get; private set; }
+        public int FilterRebuildDone { get; private set; }
+        public int FilterRebuildTotal { get; private set; }
+        public string FilterStatus { get; private set; } = "全部方块可见";
 
         Vector3 anchorPos;
         int anchorFrames;
@@ -50,6 +73,11 @@ namespace VoxelGeoVR
         void Awake()
         {
             if (view == null && Camera.main != null) view = Camera.main.transform;
+
+            // 显示交互控制器由场景生成器挂载；旧场景（v0.3.0）在这里兜底自动补上。
+            display = GetComponent<VoxelDisplayController>();
+            if (display == null) display = gameObject.AddComponent<VoxelDisplayController>();
+            if (display != null) display.Bind(this);
         }
 
         void Start()
@@ -314,19 +342,157 @@ namespace VoxelGeoVR
             go.transform.position = new Vector3(chunk.chunkX * 16f, 0f, chunk.chunkZ * 16f);
 
             var mesh = new Mesh { name = go.name };
-            ChunkMesher.BuildInto(mesh, chunk, palette, band, verts, normals, colors, tris);
+            ChunkMesher.BuildInto(mesh, chunk, palette, band, currentVisibility, verts, normals, colors, tris);
 
             var mf = go.AddComponent<MeshFilter>();
             mf.sharedMesh = mesh;
             var mr = go.AddComponent<MeshRenderer>();
             mr.sharedMaterial = voxelMaterial;
+            mr.enabled = mesh.vertexCount > 0;
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
             mr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
 
             live[key] = go;
+            chunkData[key] = chunk;
+            carveDirty = true;
             TotalVerts += mesh.vertexCount;
             TotalTris += tris.Count / 3;
+        }
+
+        /// <summary>切换所有已加载 chunk 的共享材质（剖面双面 / 默认单面），不重建网格。</summary>
+        public void SetSharedMaterial(Material mat)
+        {
+            if (mat == null) return;
+            voxelMaterial = mat;
+            foreach (var kv in live)
+            {
+                if (kv.Value == null) continue;
+                var mr = kv.Value.GetComponent<MeshRenderer>();
+                if (mr != null) mr.sharedMaterial = mat;
+            }
+        }
+
+        // ---------------------------------------------------------- A：近处封闭壳
+        /// <summary>
+        /// A 功能每帧调用。相机跨过方块（或半径变化）时才重建近处封闭壳；
+        /// 普通 chunk 网格由 shader 在半径内 discard，壳网格负责补齐新面。
+        /// </summary>
+        public void SetCarve(bool on, Vector3 center, float radius)
+        {
+            if (!on)
+            {
+                if (carveMr != null) carveMr.enabled = false;
+                carveWasOn = false;
+                return;
+            }
+            if (palette == null) return;
+            EnsureCarveObject();
+            if (carveMaterial == null) return;
+
+            int step = Mathf.Max(1, Mathf.RoundToInt(radius / 16f));
+            Vector3Int b = new Vector3Int(
+                Mathf.FloorToInt(center.x),
+                Mathf.FloorToInt(center.y),
+                Mathf.FloorToInt(center.z));
+
+            bool moved = Mathf.Abs(b.x - carveLastBlock.x) >= step ||
+                         Mathf.Abs(b.y - carveLastBlock.y) >= step ||
+                         Mathf.Abs(b.z - carveLastBlock.z) >= step;
+            bool radiusChanged = Mathf.Abs(radius - carveLastRadius) > 0.01f;
+            if (!carveDirty && carveWasOn && !moved && !radiusChanged)
+            {
+                if (carveMr != null) carveMr.enabled = carveMesh != null && carveMesh.vertexCount > 0;
+                return;
+            }
+
+            carveDirty = false;
+            carveWasOn = true;
+            carveLastRadius = radius;
+            carveLastBlock = b;
+            RebuildCarve(center, radius);
+        }
+
+        void EnsureCarveObject()
+        {
+            if (carveGo != null) return;
+            if (carveMaterial == null) ResolveCarveMaterial();
+            if (carveMaterial == null) return;
+
+            carveGo = new GameObject("VoxelCarve");
+            carveGo.transform.SetParent(transform, false);
+            var mf = carveGo.AddComponent<MeshFilter>();
+            carveMesh = new Mesh { name = "VoxelCarve" };
+            mf.sharedMesh = carveMesh;
+            carveMr = carveGo.AddComponent<MeshRenderer>();
+            carveMr.sharedMaterial = carveMaterial;
+            carveMr.enabled = false;
+            carveMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            carveMr.receiveShadows = false;
+            carveMr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+        }
+
+        void ResolveCarveMaterial()
+        {
+            if (carveMaterial != null) return;
+            if (voxelMaterial == null) return;
+            carveMaterial = new Material(voxelMaterial) { name = "VoxelCarve_Runtime" };
+            carveMaterial.SetFloat("_CullMode", 0f);
+            carveMaterial.SetFloat("_CarveReceiver", 0f);
+        }
+
+        void RebuildCarve(Vector3 center, float radius)
+        {
+            if (carveMesh == null || carveMaterial == null) return;
+
+            int minX = Mathf.FloorToInt(center.x - radius - 1f);
+            int maxX = Mathf.CeilToInt(center.x + radius + 1f);
+            int minY = Mathf.FloorToInt(center.y - radius - 1f);
+            int maxY = Mathf.CeilToInt(center.y + radius + 1f);
+            int minZ = Mathf.FloorToInt(center.z - radius - 1f);
+            int maxZ = Mathf.CeilToInt(center.z + radius + 1f);
+            int sx = maxX - minX + 1;
+            int sy = maxY - minY + 1;
+            int sz = maxZ - minZ + 1;
+            int count = sx * sy * sz;
+
+            if (carveVolume == null || carveVolume.Length < count)
+                carveVolume = new ushort[count];
+            System.Array.Clear(carveVolume, 0, count);
+
+            // 从已解码的 live chunk 直接拷贝包围盒，避免每个体素查字典。
+            foreach (var kv in chunkData)
+            {
+                var c = kv.Value;
+                int cx0 = c.chunkX * 16;
+                int cz0 = c.chunkZ * 16;
+                int x0 = Mathf.Max(minX, cx0);
+                int x1 = Mathf.Min(maxX, cx0 + 15);
+                int z0 = Mathf.Max(minZ, cz0);
+                int z1 = Mathf.Min(maxZ, cz0 + 15);
+                int y0 = Mathf.Max(minY, c.BaseY);
+                int y1 = Mathf.Min(maxY, c.BaseY + c.sectionCount * 16 - 1);
+                if (x0 > x1 || y0 > y1 || z0 > z1) continue;
+
+                for (int y = y0; y <= y1; y++)
+                {
+                    int syi = y - c.BaseY;
+                    for (int z = z0; z <= z1; z++)
+                    {
+                        int lz = z - cz0;
+                        int dstRow = ((y - minY) * sz + (z - minZ)) * sx;
+                        int srcRow = syi * 256 + lz * 16;
+                        for (int x = x0; x <= x1; x++)
+                            carveVolume[dstRow + (x - minX)] = c.ids[srcRow + (x - cx0)];
+                    }
+                }
+            }
+
+            ChunkMesher.BuildCarveInto(carveMesh, carveVolume, sx, sy, sz,
+                new Vector3Int(minX, minY, minZ), center, radius, palette, currentVisibility,
+                verts, normals, colors, tris);
+
+            carveMr.enabled = carveMesh.vertexCount > 0;
         }
 
         void DestroyChunk(Vector2Int key)
@@ -334,17 +500,97 @@ namespace VoxelGeoVR
             GameObject go;
             if (!live.TryGetValue(key, out go)) return;
             live.Remove(key);
+            chunkData.Remove(key);
+            carveDirty = true;
             if (go != null)
             {
                 var mf = go.GetComponent<MeshFilter>();
                 if (mf != null && mf.sharedMesh != null)
                 {
                     TotalVerts -= mf.sharedMesh.vertexCount;
-                    TotalTris -= mf.sharedMesh.triangles.Length / 3;
+                    TotalTris -= (int)mf.sharedMesh.GetIndexCount(0) / 3;
                     Destroy(mf.sharedMesh);
                 }
                 Destroy(go);
             }
+        }
+
+        /// <summary>
+        /// 按可见集合重建当前已加载 chunk 的网格。visible == null 表示全部 solid 可见。
+        /// 每帧重建 2 个 chunk，避免一次性 0.5s+ 的卡顿；重建期间新加载的 chunk 直接使用新可见集。
+        /// </summary>
+        public void RebuildVisibility(bool[] visible)
+        {
+            if (rebuildRoutine != null) StopCoroutine(rebuildRoutine);
+            rebuildRoutine = null;
+            FilterRebuilding = false;
+            currentVisibility = visible;
+            carveDirty = true;
+            if (palette == null) return;
+            rebuildRoutine = StartCoroutine(RebuildVisibilityRoutine(visible));
+        }
+
+        IEnumerator RebuildVisibilityRoutine(bool[] visible)
+        {
+            FilterRebuilding = true;
+            FilterRebuildDone = 0;
+            var keys = new List<Vector2Int>(live.Keys);
+            FilterRebuildTotal = keys.Count;
+            FilterStatus = "重建网格 0/" + FilterRebuildTotal;
+            Debug.Log("[VoxelWorld] filter rebuild start chunks=" + FilterRebuildTotal +
+                      " visibility=" + (visible == null ? "all" : "masked"));
+
+            Vector3 p = ViewPos();
+            int ccx = Mathf.FloorToInt(p.x / 16f);
+            int ccz = Mathf.FloorToInt(p.z / 16f);
+            keys.Sort((a, b) =>
+            {
+                int da = (a.x - ccx) * (a.x - ccx) + (a.y - ccz) * (a.y - ccz);
+                int db = (b.x - ccx) * (b.x - ccx) + (b.y - ccz) * (b.y - ccz);
+                return da.CompareTo(db);
+            });
+
+            int perFrame = 2;
+            for (int i = 0; i < keys.Count; i++)
+            {
+                RebuildChunk(keys[i], visible);
+                FilterRebuildDone = i + 1;
+                FilterStatus = "重建网格 " + FilterRebuildDone + "/" + FilterRebuildTotal;
+                if ((i + 1) % perFrame == 0) yield return null;
+            }
+
+            FilterRebuilding = false;
+            rebuildRoutine = null;
+            FilterStatus = visible == null ? "全部方块可见" : "筛选网格已更新";
+            Debug.Log("[VoxelWorld] filter rebuild done chunks=" + FilterRebuildDone +
+                      " verts=" + TotalVerts + " tris=" + TotalTris);
+        }
+
+        void RebuildChunk(Vector2Int key, bool[] visible)
+        {
+            GameObject go;
+            VxChunk chunk;
+            if (!live.TryGetValue(key, out go) || go == null) return;
+            if (!chunkData.TryGetValue(key, out chunk)) return;
+
+            var mf = go.GetComponent<MeshFilter>();
+            var mr = go.GetComponent<MeshRenderer>();
+            if (mf == null || mr == null) return;
+
+            var mesh = new Mesh { name = go.name };
+            ChunkMesher.BuildInto(mesh, chunk, palette, band, visible, verts, normals, colors, tris);
+
+            var old = mf.sharedMesh;
+            if (old != null)
+            {
+                TotalVerts -= old.vertexCount;
+                TotalTris -= (int)old.GetIndexCount(0) / 3;
+            }
+            mf.sharedMesh = mesh;
+            mr.enabled = mesh.vertexCount > 0;
+            TotalVerts += mesh.vertexCount;
+            TotalTris += tris.Count / 3;
+            if (old != null) Destroy(old);
         }
 
         // ---------------------------------------------------------- 同步接口（编辑器预览/自检）
@@ -439,6 +685,8 @@ namespace VoxelGeoVR
                 p.x, p.y, p.z, 1f / Mathf.Max(Time.smoothDeltaTime, 1e-4f),
                 status);
             GUI.Label(new Rect(16, 120, 1100, 220), text, style);
+
+            if (display != null) display.DrawHud();
         }
     }
 }
