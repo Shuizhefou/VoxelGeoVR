@@ -24,6 +24,10 @@ namespace VoxelGeoVR
         public RenderTexture ViewTexture { get; private set; }
         public Camera SectionCamera { get; private set; }
         public Rect ViewportRect { get; private set; }
+        public Vector3 ViewCenter { get; private set; }
+        public Vector3 ViewRight { get; private set; }
+        public Vector3 ViewUp { get; private set; }
+        public float ViewHalfSize { get; private set; } = 32f;
 
         const int RtSize = 512;
         const float CameraDistance = 8f;
@@ -85,11 +89,15 @@ namespace VoxelGeoVR
 
             ClampPan(right, up);
             Vector3 center = planePoint + right * pan.x + up * pan.y;
+            ViewCenter = center;
+            ViewRight = right;
+            ViewUp = up;
 
             SectionCamera.transform.SetPositionAndRotation(
                 center - n * CameraDistance,
                 Quaternion.LookRotation(n, up));
             SectionCamera.orthographicSize = BaseOrthoSize / Mathf.Clamp(zoom, 1f, 16f);
+            ViewHalfSize = SectionCamera.orthographicSize * 1.15f;
             if (sourceCamera != null) SectionCamera.backgroundColor = sourceCamera.backgroundColor;
         }
 
@@ -180,12 +188,13 @@ namespace VoxelGeoVR
             cam.farClipPlane = 800f;
             cam.clearFlags = CameraClearFlags.SolidColor;
             cam.backgroundColor = sourceCamera != null ? sourceCamera.backgroundColor : new Color(0.53f, 0.72f, 0.91f);
-            cam.cullingMask = 1 << 0;          // chunk 在 Default 层；不渲染 UI/其它层
+            cam.cullingMask = (1 << 0) | (1 << VoxelWorld.SectionCapLayer);
             cam.allowHDR = false;
             cam.allowMSAA = false;
             cam.useOcclusionCulling = false;
             cam.depth = -100f;
             cam.enabled = false;
+            cameraGo.AddComponent<SectionCameraClip>();
 
             var data = cameraGo.AddComponent<UniversalAdditionalCameraData>();
             data.renderPostProcessing = false;

@@ -27,6 +27,7 @@ Material:
     m_Floats:
     - _CullMode: 0
     - _NoFade: 1
+    - _SectionCap: 0
     m_Colors:
     - _Tint: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []

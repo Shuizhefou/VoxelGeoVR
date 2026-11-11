@@ -10,9 +10,12 @@ namespace VoxelGeoVR
     /// </summary>
     public class VoxelWorld : MonoBehaviour
     {
+        public const int SectionCapLayer = 8;
+
         [Header("引用")]
         public Material voxelMaterial;
         public Material envelopeMaterial;
+        public Material sectionCapMaterial;
         public Transform view;
 
         [Header("参数")]
@@ -52,6 +55,28 @@ namespace VoxelGeoVR
         bool envelopeWasOn;
         float envelopeLastRadius = -1f;
         Vector3Int envelopeLastBlock = new Vector3Int(999999, 999999, 999999);
+
+        GameObject sectionCapGo;
+        Mesh sectionCapMesh;
+        MeshRenderer sectionCapMr;
+        bool sectionCapDirty = true;
+        bool sectionCapWasOn;
+        int sectionCapAxis = -1;
+        Vector3 sectionCapPoint;
+        Vector3 sectionCapNormal = Vector3.up;
+        Vector3 sectionCapCenter;
+        Vector3 sectionCapRight = Vector3.right;
+        Vector3 sectionCapUp = Vector3.forward;
+        float sectionCapHalf = -1f;
+
+        readonly List<Vector3> capPoly = new List<Vector3>(8);
+        readonly Vector3[] capCorners = new Vector3[8];
+        readonly float[] capDist = new float[8];
+        Vector3 capSortCenter, capSortR, capSortU;
+        static readonly int[] CapEdges =
+        {
+            0,1, 0,2, 0,4, 1,3, 1,5, 2,3, 2,6, 3,7, 4,5, 4,6, 5,7, 6,7
+        };
 
         public int ChunkCount { get { return live.Count; } }
         public int CellCount { get { return cells.Count; } }
@@ -167,6 +192,8 @@ namespace VoxelGeoVR
                 cam.nearClipPlane = 0.1f;
                 cam.clearFlags = CameraClearFlags.SolidColor;
                 cam.backgroundColor = sky;
+                // 剖面盖面只给第二相机看，主视角不渲染该层。
+                cam.cullingMask &= ~(1 << SectionCapLayer);
             }
         }
 
@@ -411,6 +438,7 @@ namespace VoxelGeoVR
             live[key] = go;
             chunkData[key] = chunk;
             envelopeDirty = true;
+            sectionCapDirty = true;
             TotalVerts += mesh.vertexCount;
             TotalTris += tris.Count / 3;
         }
@@ -559,6 +587,313 @@ namespace VoxelGeoVR
             envelopeMr.enabled = envelopeMesh.vertexCount > 0;
         }
 
+        // ---------------------------------------------------------- B：剖面盖面
+        /// <summary>
+        /// 生成剖面经过的方块截面色。只给剖面相机看：物体放在 SectionCapLayer，
+        /// 主相机 cullingMask 排除该层，因此主视角不会被裁切、也不会看到盖面。
+        /// </summary>
+        public void SetSectionCap(bool on, int axis, Vector3 point, Vector3 normal,
+                                  Vector3 center, Vector3 right, Vector3 up, float halfSize)
+        {
+            if (!on)
+            {
+                if (sectionCapMr != null) sectionCapMr.enabled = false;
+                sectionCapWasOn = false;
+                return;
+            }
+            if (palette == null) return;
+            if (FilterRebuilding)
+            {
+                if (sectionCapMr != null) sectionCapMr.enabled = false;
+                sectionCapDirty = true;
+                sectionCapWasOn = false;
+                return;
+            }
+
+            EnsureSectionCapObject();
+            if (sectionCapMaterial == null) return;
+
+            bool changed = !sectionCapWasOn || sectionCapDirty ||
+                           axis != sectionCapAxis ||
+                           (point - sectionCapPoint).sqrMagnitude > 1e-4f ||
+                           (normal - sectionCapNormal).sqrMagnitude > 1e-4f ||
+                           (center - sectionCapCenter).sqrMagnitude > 1e-4f ||
+                           (right - sectionCapRight).sqrMagnitude > 1e-4f ||
+                           (up - sectionCapUp).sqrMagnitude > 1e-4f ||
+                           Mathf.Abs(halfSize - sectionCapHalf) > 0.05f;
+            if (!changed)
+            {
+                if (sectionCapMr != null) sectionCapMr.enabled = sectionCapMesh != null && sectionCapMesh.vertexCount > 0;
+                return;
+            }
+
+            sectionCapWasOn = true;
+            sectionCapDirty = false;
+            sectionCapAxis = axis;
+            sectionCapPoint = point;
+            sectionCapNormal = normal.sqrMagnitude > 1e-8f ? normal.normalized : Vector3.up;
+            sectionCapCenter = center;
+            sectionCapRight = right;
+            sectionCapUp = up;
+            sectionCapHalf = halfSize;
+            RebuildSectionCap();
+        }
+
+        void EnsureSectionCapObject()
+        {
+            if (sectionCapGo != null) return;
+            if (sectionCapMaterial == null) ResolveSectionCapMaterial();
+            if (sectionCapMaterial == null) return;
+
+            sectionCapGo = new GameObject("VoxelSectionCap");
+            sectionCapGo.layer = SectionCapLayer;
+            sectionCapGo.transform.SetParent(transform, false);
+            var mf = sectionCapGo.AddComponent<MeshFilter>();
+            sectionCapMesh = new Mesh { name = "VoxelSectionCap" };
+            mf.sharedMesh = sectionCapMesh;
+            sectionCapMr = sectionCapGo.AddComponent<MeshRenderer>();
+            sectionCapMr.sharedMaterial = sectionCapMaterial;
+            sectionCapMr.enabled = false;
+            sectionCapMr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            sectionCapMr.receiveShadows = false;
+            sectionCapMr.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+        }
+
+        void ResolveSectionCapMaterial()
+        {
+            if (sectionCapMaterial != null) return;
+            if (voxelMaterial == null) return;
+            sectionCapMaterial = new Material(voxelMaterial) { name = "VoxelSectionCap_Runtime" };
+            sectionCapMaterial.SetFloat("_CullMode", 0f);
+            sectionCapMaterial.SetFloat("_NoFade", 1f);
+            sectionCapMaterial.SetFloat("_SectionCap", 1f);
+        }
+
+        void RebuildSectionCap()
+        {
+            if (sectionCapMesh == null || sectionCapMaterial == null) return;
+
+            verts.Clear();
+            normals.Clear();
+            colors.Clear();
+            tris.Clear();
+
+            if (sectionCapAxis >= 0 && sectionCapAxis <= 2)
+                BuildAxisSectionCap();
+            else
+                BuildFreeSectionCap();
+
+            sectionCapMesh.Clear();
+            if (verts.Count > 0)
+            {
+                sectionCapMesh.indexFormat = verts.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
+                sectionCapMesh.SetVertices(verts);
+                sectionCapMesh.SetNormals(normals);
+                sectionCapMesh.SetColors(colors);
+                sectionCapMesh.SetTriangles(tris, 0, true);
+                sectionCapMesh.RecalculateBounds();
+            }
+            sectionCapMr.enabled = sectionCapMesh.vertexCount > 0;
+        }
+
+        void BuildAxisSectionCap()
+        {
+            Vector3 n = sectionCapNormal;
+            float plane = sectionCapAxis == 0 ? sectionCapPoint.x
+                        : sectionCapAxis == 1 ? sectionCapPoint.y
+                        : sectionCapPoint.z;
+            int block = Mathf.FloorToInt(plane);
+
+            int u0, u1, v0, v1;
+            if (sectionCapAxis == 0)           // X 平面：u=Z, v=Y
+            {
+                u0 = Mathf.FloorToInt(sectionCapCenter.z - sectionCapHalf);
+                u1 = Mathf.CeilToInt(sectionCapCenter.z + sectionCapHalf);
+                v0 = Mathf.FloorToInt(sectionCapCenter.y - sectionCapHalf);
+                v1 = Mathf.CeilToInt(sectionCapCenter.y + sectionCapHalf);
+                for (int z = u0; z <= u1; z++)
+                    for (int y = v0; y <= v1; y++)
+                    {
+                        ushort id;
+                        if (!TryGetBlock(block, y, z, out id) || !IsBlockVisible(id)) continue;
+                        AddCapQuad(
+                            new Vector3(plane, y, z), new Vector3(plane, y, z + 1),
+                            new Vector3(plane, y + 1, z + 1), new Vector3(plane, y + 1, z),
+                            palette.Color(id), n);
+                    }
+            }
+            else if (sectionCapAxis == 1)      // Y 平面：u=X, v=Z
+            {
+                u0 = Mathf.FloorToInt(sectionCapCenter.x - sectionCapHalf);
+                u1 = Mathf.CeilToInt(sectionCapCenter.x + sectionCapHalf);
+                v0 = Mathf.FloorToInt(sectionCapCenter.z - sectionCapHalf);
+                v1 = Mathf.CeilToInt(sectionCapCenter.z + sectionCapHalf);
+                for (int x = u0; x <= u1; x++)
+                    for (int z = v0; z <= v1; z++)
+                    {
+                        ushort id;
+                        if (!TryGetBlock(x, block, z, out id) || !IsBlockVisible(id)) continue;
+                        AddCapQuad(
+                            new Vector3(x, plane, z), new Vector3(x, plane, z + 1),
+                            new Vector3(x + 1, plane, z + 1), new Vector3(x + 1, plane, z),
+                            palette.Color(id), n);
+                    }
+            }
+            else                               // Z 平面：u=X, v=Y
+            {
+                u0 = Mathf.FloorToInt(sectionCapCenter.x - sectionCapHalf);
+                u1 = Mathf.CeilToInt(sectionCapCenter.x + sectionCapHalf);
+                v0 = Mathf.FloorToInt(sectionCapCenter.y - sectionCapHalf);
+                v1 = Mathf.CeilToInt(sectionCapCenter.y + sectionCapHalf);
+                for (int x = u0; x <= u1; x++)
+                    for (int y = v0; y <= v1; y++)
+                    {
+                        ushort id;
+                        if (!TryGetBlock(x, y, block, out id) || !IsBlockVisible(id)) continue;
+                        AddCapQuad(
+                            new Vector3(x, y, plane), new Vector3(x + 1, y, plane),
+                            new Vector3(x + 1, y + 1, plane), new Vector3(x, y + 1, plane),
+                            palette.Color(id), n);
+                    }
+            }
+        }
+
+        void BuildFreeSectionCap()
+        {
+            Vector3 n = sectionCapNormal;
+            Vector3 c = sectionCapCenter;
+            float d = -Vector3.Dot(sectionCapPoint, n);
+            float h = sectionCapHalf;
+
+            // 剖面视口矩形在三个世界轴上的 AABB，只扫这一块。
+            Vector3 ext = new Vector3(
+                h * (Mathf.Abs(sectionCapRight.x) + Mathf.Abs(sectionCapUp.x)),
+                h * (Mathf.Abs(sectionCapRight.y) + Mathf.Abs(sectionCapUp.y)),
+                h * (Mathf.Abs(sectionCapRight.z) + Mathf.Abs(sectionCapUp.z))) + Vector3.one * 2f;
+
+            int x0 = Mathf.FloorToInt(c.x - ext.x);
+            int x1 = Mathf.CeilToInt(c.x + ext.x);
+            int y0 = Mathf.FloorToInt(c.y - ext.y);
+            int y1 = Mathf.CeilToInt(c.y + ext.y);
+            int z0 = Mathf.FloorToInt(c.z - ext.z);
+            int z1 = Mathf.CeilToInt(c.z + ext.z);
+
+            for (int y = y0; y <= y1; y++)
+                for (int z = z0; z <= z1; z++)
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        ushort id;
+                        if (!TryGetBlock(x, y, z, out id) || !IsBlockVisible(id)) continue;
+                        float centerDist = Vector3.Dot(new Vector3(x + 0.5f, y + 0.5f, z + 0.5f), n) + d;
+                        if (Mathf.Abs(centerDist) > 0.87f) continue;
+                        AddCapPolygon(x, y, z, id, n);
+                    }
+        }
+
+        bool TryGetBlock(int x, int y, int z, out ushort id)
+        {
+            id = 0;
+            int cx = x >> 4;                   // 负数算术右移 = floor(x / 16)
+            int cz = z >> 4;
+            VxChunk chunk;
+            if (!chunkData.TryGetValue(new Vector2Int(cx, cz), out chunk)) return false;
+            id = chunk.Id(x - (cx << 4), y, z - (cz << 4));
+            return true;
+        }
+
+        bool IsBlockVisible(ushort id)
+        {
+            if (!palette.IsSolid(id)) return false;
+            return currentVisibility == null ||
+                   (id < currentVisibility.Length && currentVisibility[id]);
+        }
+
+        void AddCapQuad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, Color32 col, Vector3 n)
+        {
+            int vi = verts.Count;
+            verts.Add(a); verts.Add(b); verts.Add(c); verts.Add(d);
+            normals.Add(n); normals.Add(n); normals.Add(n); normals.Add(n);
+            colors.Add(col); colors.Add(col); colors.Add(col); colors.Add(col);
+            tris.Add(vi); tris.Add(vi + 1); tris.Add(vi + 2);
+            tris.Add(vi); tris.Add(vi + 2); tris.Add(vi + 3);
+        }
+
+        void AddCapPolygon(int x, int y, int z, ushort id, Vector3 n)
+        {
+            float d = -Vector3.Dot(sectionCapPoint, n);
+            for (int i = 0; i < 8; i++)
+            {
+                capCorners[i] = new Vector3(
+                    x + ((i & 1) != 0 ? 1f : 0f),
+                    y + ((i & 2) != 0 ? 1f : 0f),
+                    z + ((i & 4) != 0 ? 1f : 0f));
+                capDist[i] = Vector3.Dot(capCorners[i], n) + d;
+            }
+
+            bool anyPos = false, anyNeg = false;
+            for (int i = 0; i < 8; i++)
+            {
+                if (capDist[i] > 1e-5f) anyPos = true;
+                else if (capDist[i] < -1e-5f) anyNeg = true;
+            }
+            if (!anyPos || !anyNeg) return;
+
+            capPoly.Clear();
+            for (int e = 0; e < CapEdges.Length; e += 2)
+            {
+                int a = CapEdges[e], b = CapEdges[e + 1];
+                float da = capDist[a], db = capDist[b];
+                if (Mathf.Abs(da) < 1e-5f && Mathf.Abs(db) < 1e-5f) continue;
+                if (Mathf.Abs(da) < 1e-5f) AddCapPoint(capCorners[a]);
+                else if (Mathf.Abs(db) < 1e-5f) AddCapPoint(capCorners[b]);
+                else if ((da > 0f) != (db > 0f))
+                {
+                    float t = da / (da - db);
+                    AddCapPoint(Vector3.Lerp(capCorners[a], capCorners[b], t));
+                }
+            }
+            if (capPoly.Count < 3) return;
+
+            capSortCenter = Vector3.zero;
+            for (int i = 0; i < capPoly.Count; i++) capSortCenter += capPoly[i];
+            capSortCenter /= capPoly.Count;
+            Vector3 upHint = Mathf.Abs(n.y) > 0.9f ? Vector3.forward : Vector3.up;
+            capSortR = Vector3.Cross(upHint, n).normalized;
+            capSortU = Vector3.Cross(n, capSortR).normalized;
+            capPoly.Sort(CapAngleCompare);
+
+            Color32 col = palette.Color(id);
+            int baseIndex = verts.Count;
+            for (int i = 0; i < capPoly.Count; i++)
+            {
+                verts.Add(capPoly[i]);
+                normals.Add(n);
+                colors.Add(col);
+            }
+            for (int i = 1; i < capPoly.Count - 1; i++)
+            {
+                tris.Add(baseIndex);
+                tris.Add(baseIndex + i);
+                tris.Add(baseIndex + i + 1);
+            }
+        }
+
+        void AddCapPoint(Vector3 p)
+        {
+            for (int i = 0; i < capPoly.Count; i++)
+                if ((capPoly[i] - p).sqrMagnitude < 1e-8f) return;
+            capPoly.Add(p);
+        }
+
+        int CapAngleCompare(Vector3 a, Vector3 b)
+        {
+            float aa = Mathf.Atan2(Vector3.Dot(a - capSortCenter, capSortU),
+                                   Vector3.Dot(a - capSortCenter, capSortR));
+            float ba = Mathf.Atan2(Vector3.Dot(b - capSortCenter, capSortU),
+                                   Vector3.Dot(b - capSortCenter, capSortR));
+            return aa.CompareTo(ba);
+        }
+
         void DestroyChunk(Vector2Int key)
         {
             GameObject go;
@@ -566,6 +901,7 @@ namespace VoxelGeoVR
             live.Remove(key);
             chunkData.Remove(key);
             envelopeDirty = true;
+            sectionCapDirty = true;
             if (go != null)
             {
                 var mf = go.GetComponent<MeshFilter>();
@@ -590,6 +926,7 @@ namespace VoxelGeoVR
             FilterRebuilding = false;
             currentVisibility = visible;
             envelopeDirty = true;
+            sectionCapDirty = true;
             if (palette == null) return;
             rebuildRoutine = StartCoroutine(RebuildVisibilityRoutine(visible));
         }

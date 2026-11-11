@@ -7,6 +7,8 @@ Shader "VoxelGeoVR/VoxelVertexColor"
         _CullMode ("Cull Mode", Float) = 2
         // 1 = 不参与虚化（A 的岩层包络面）；0 = 正常按距离虚化
         _NoFade ("No Fade", Float) = 0
+        // 1 = 剖面盖面（不受剖切影响）；0 = 普通 chunk / 包络
+        _SectionCap ("Section Cap", Float) = 0
     }
 
     SubShader
@@ -33,6 +35,7 @@ Shader "VoxelGeoVR/VoxelVertexColor"
                 half4 _Tint;
                 float _CullMode;
                 float _NoFade;
+                float _SectionCap;
             CBUFFER_END
 
             // ------------------------------------------------------------------
@@ -88,8 +91,8 @@ Shader "VoxelGeoVR/VoxelVertexColor"
 
             half4 frag (Varyings i) : SV_Target
             {
-                // B：任意方向剖面。按片元世界坐标裁剪，切面不会出现整块三角形缺失。
-                if (_SectionEnabled > 0.5)
+                // B：任意方向剖面。只在剖面相机渲染期间打开；盖面材质 _SectionCap=1 不裁。
+                if (_SectionEnabled > 0.5 && _SectionCap < 0.5)
                 {
                     clip(dot(i.positionWS, _SectionNormal.xyz) + _SectionD);
                 }

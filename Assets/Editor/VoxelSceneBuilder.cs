@@ -15,6 +15,7 @@ namespace VoxelGeoVR.EditorTools
         public const string MaterialPath = "Assets/Materials/Voxel.mat";
         public const string DoubleSidedMaterialPath = "Assets/Materials/VoxelDoubleSided.mat";
         public const string EnvelopeMaterialPath = "Assets/Materials/VoxelEnvelope.mat";
+        public const string SectionCapMaterialPath = "Assets/Materials/VoxelSectionCap.mat";
         public const string ShaderName = "VoxelGeoVR/VoxelVertexColor";
 
         [MenuItem("VoxelGeoVR/Build Voxel Scene")]
@@ -34,6 +35,7 @@ namespace VoxelGeoVR.EditorTools
             var mat = GetOrCreateMaterial();
             var doubleMat = GetOrCreateDoubleSidedMaterial();
             var envelopeMat = GetOrCreateEnvelopeMaterial();
+            var sectionCapMat = GetOrCreateSectionCapMaterial();
 
             // 相机架
             var rigGo = new GameObject("CameraRig");
@@ -63,6 +65,7 @@ namespace VoxelGeoVR.EditorTools
             var world = worldGo.AddComponent<VoxelWorld>();
             world.voxelMaterial = mat;
             world.envelopeMaterial = envelopeMat;
+            world.sectionCapMaterial = sectionCapMat;
             world.view = camGo.transform;
             world.autoStart = true;
             world.showHud = true;
@@ -139,6 +142,26 @@ namespace VoxelGeoVR.EditorTools
             }
             mat.SetFloat("_CullMode", 0f);
             mat.SetFloat("_NoFade", 1f);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        /// <summary>剖面盖面材质：不参与虚化，也不要被剖面 clip 裁掉。</summary>
+        public static Material GetOrCreateSectionCapMaterial()
+        {
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(SectionCapMaterialPath);
+            if (mat == null)
+            {
+                var baseMat = GetOrCreateMaterial();
+                var shader = baseMat != null ? baseMat.shader : Shader.Find(ShaderName);
+                if (shader == null) shader = AssetDatabase.LoadAssetAtPath<Shader>("Assets/Shaders/VoxelVertexColor.shader");
+                Directory.CreateDirectory("Assets/Materials");
+                mat = new Material(shader) { name = "VoxelSectionCap" };
+                AssetDatabase.CreateAsset(mat, SectionCapMaterialPath);
+            }
+            mat.SetFloat("_CullMode", 0f);
+            mat.SetFloat("_NoFade", 1f);
+            mat.SetFloat("_SectionCap", 1f);
             EditorUtility.SetDirty(mat);
             return mat;
         }

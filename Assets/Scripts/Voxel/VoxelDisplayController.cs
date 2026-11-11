@@ -217,7 +217,8 @@ namespace VoxelGeoVR
 
         void PushGlobals()
         {
-            Shader.SetGlobalFloat("_SectionEnabled", sectionEnabled ? 1f : 0f);
+            // 主视角永不剖切；只有剖面相机的 SectionCameraClip 在渲染期间临时置 1。
+            Shader.SetGlobalFloat("_SectionEnabled", 0f);
             Shader.SetGlobalVector("_SectionNormal", new Vector4(planeNormal.x, planeNormal.y, planeNormal.z, 0f));
             Shader.SetGlobalFloat("_SectionD", planeD);
 
@@ -262,7 +263,20 @@ namespace VoxelGeoVR
             section.planeNormal = planeNormal;
 
             section.SetActive(sectionEnabled && activePanel == 1);
-            if (section.active) section.Sync();
+            if (section.active)
+            {
+                section.Sync();
+                if (world != null)
+                {
+                    world.SetSectionCap(true, sectionAxis, planePoint, planeNormal,
+                        section.ViewCenter, section.ViewRight, section.ViewUp, section.ViewHalfSize);
+                }
+            }
+            else if (world != null)
+            {
+                world.SetSectionCap(false, sectionAxis, planePoint, planeNormal,
+                    planePoint, Vector3.right, Vector3.up, 1f);
+            }
         }
 
         void ApplyMaterialMode()
@@ -620,7 +634,7 @@ namespace VoxelGeoVR
             y += 40f * s;
 
             GUI.Label(new Rect(x, y, w, 48f * s),
-                "展示框内拖动平移、滚轮缩放；主视图切面同样使用该平面。\n切面开启时自动切到双面材质，关闭后恢复单面。",
+                "只有展示框内剖切，主视角保持完整；\n展示框会显示剖面经过的方块截面色。",
                 smallStyle);
         }
 
